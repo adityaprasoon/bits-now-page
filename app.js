@@ -87,13 +87,13 @@ function renderBoard(payload, fromCache = false) {
   passed.sort((a, b) => new Date(b.endUtc) - new Date(a.endUtc));
 
   activeEventsEl.innerHTML = active.length
-    ? active.map((e) => eventCard(e, "active", { start: "Start", end: "End" })).join("")
+    ? active.map((e) => eventCard(e, "active", { start: "Start (IST)", end: "End (IST)" })).join("")
     : '<p class="empty">No active events right now.</p>';
 
   const upcomingTop = upcoming.slice(0, 2);
   if (upcomingTop.length) {
     upcomingEventsEl.innerHTML = upcomingTop
-      .map((e) => eventCard(e, "", { start: "Expected start", end: "Expected end" }))
+      .map((e) => eventCard(e, "", { start: "Expected start (IST)", end: "Expected end (IST)" }))
       .join("");
     upcomingSectionEl.classList.remove("hidden");
   } else {
@@ -103,7 +103,7 @@ function renderBoard(payload, fromCache = false) {
 
   const passedTop = passed.slice(0, 2);
   if (passedTop.length) {
-    passedEventsEl.innerHTML = passedTop.map((e) => eventCard(e, "past", { start: "Start", end: "End" })).join("");
+    passedEventsEl.innerHTML = passedTop.map((e) => eventCard(e, "past", { start: "Start (IST)", end: "End (IST)" })).join("");
     passedSectionEl.classList.remove("hidden");
   } else {
     passedEventsEl.innerHTML = "";
