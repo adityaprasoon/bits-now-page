@@ -32,6 +32,7 @@ function doGet() {
       description: headers.indexOf("Description"),
       startUtc: headers.indexOf("StartUTC"),
       endUtc: headers.indexOf("EndUTC"),
+      actuallyActive: headers.indexOf("ActuallyActive"),
       visible: headers.indexOf("Visible"),
       link: headers.indexOf("Link")
     };
@@ -44,9 +45,11 @@ function doGet() {
       const description = idx.description >= 0 ? String(row[idx.description] || "").trim() : "";
       const startUtc = idx.startUtc >= 0 ? String(row[idx.startUtc] || "").trim() : "";
       const endUtc = idx.endUtc >= 0 ? String(row[idx.endUtc] || "").trim() : "";
+      const actuallyActiveRaw = idx.actuallyActive >= 0 ? String(row[idx.actuallyActive] || "FALSE").trim() : "FALSE";
       const link = idx.link >= 0 ? String(row[idx.link] || "").trim() : "";
       const visibleRaw = idx.visible >= 0 ? String(row[idx.visible] || "TRUE").trim() : "TRUE";
 
+      const actuallyActive = /^(true|1|yes|y)$/i.test(actuallyActiveRaw);
       const visible = /^(true|1|yes|y)$/i.test(visibleRaw);
 
       if (!visible || !title || !startUtc || !endUtc) {
@@ -58,6 +61,7 @@ function doGet() {
         description: description,
         startUtc: startUtc,
         endUtc: endUtc,
+        actuallyActive: actuallyActive,
         link: link
       });
     }

@@ -38,7 +38,7 @@ function hideError() {
   errorBoxEl.classList.add("hidden");
 }
 
-function eventCard(event, styleClass) {
+function eventCard(event, styleClass, labels = { start: "Start", end: "End" }) {
   const safeDesc = event.description ? `<p>${event.description}</p>` : "";
   const linkHtml = event.link
     ? `<div class=\"link-row\"><a href=\"${event.link}\" target=\"_blank\" rel=\"noopener noreferrer\">Open Event Link</a></div>`
@@ -49,8 +49,8 @@ function eventCard(event, styleClass) {
       <h3>${event.title}</h3>
       ${safeDesc}
       <div class="time-row">
-        <span>Start: ${formatIst(event.startUtc)}</span>
-        <span>End: ${formatIst(event.endUtc)}</span>
+        <span>${labels.start}: ${formatIst(event.startUtc)}</span>
+        <span>${labels.end}: ${formatIst(event.endUtc)}</span>
       </div>
       ${linkHtml}
     </article>
@@ -66,32 +66,35 @@ function renderBoard(payload, fromCache = false) {
   const passed = [];
 
   events.forEach((event) => {
-    const start = new Date(event.startUtc);
     const end = new Date(event.endUtc);
+    const actuallyActive = Boolean(event.actuallyActive);
 
-    if (serverNow >= start && serverNow <= end) {
+    // Past events are always derived from time window end.
+    if (serverNow > end) {
+      passed.push(event);
+      return;
+    }
+
+    if (actuallyActive) {
       active.push(event);
       return;
     }
 
-    if (serverNow < start) {
-      upcoming.push(event);
-      return;
-    }
-
-    passed.push(event);
+    upcoming.push(event);
   });
 
   upcoming.sort((a, b) => new Date(a.startUtc) - new Date(b.startUtc));
   passed.sort((a, b) => new Date(b.endUtc) - new Date(a.endUtc));
 
   activeEventsEl.innerHTML = active.length
-    ? active.map((e) => eventCard(e, "active")).join("")
+    ? active.map((e) => eventCard(e, "active", { start: "Start", end: "End" })).join("")
     : '<p class="empty">No active events right now.</p>';
 
   const upcomingTop = upcoming.slice(0, 2);
   if (upcomingTop.length) {
-    upcomingEventsEl.innerHTML = upcomingTop.map((e) => eventCard(e, "")).join("");
+    upcomingEventsEl.innerHTML = upcomingTop
+      .map((e) => eventCard(e, "", { start: "Expected start", end: "Expected end" }))
+      .join("");
     upcomingSectionEl.classList.remove("hidden");
   } else {
     upcomingEventsEl.innerHTML = "";
@@ -100,7 +103,7 @@ function renderBoard(payload, fromCache = false) {
 
   const passedTop = passed.slice(0, 2);
   if (passedTop.length) {
-    passedEventsEl.innerHTML = passedTop.map((e) => eventCard(e, "past")).join("");
+    passedEventsEl.innerHTML = passedTop.map((e) => eventCard(e, "past", { start: "Start", end: "End" })).join("");
     passedSectionEl.classList.remove("hidden");
   } else {
     passedEventsEl.innerHTML = "";
