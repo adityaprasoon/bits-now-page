@@ -46,20 +46,20 @@ function doGet() {
       const row = values[i];
       const title = idx.title >= 0 ? String(row[idx.title] || "").trim() : "";
       const description = idx.description >= 0 ? String(row[idx.description] || "").trim() : "";
-      const startInput = idx.startIst >= 0
-        ? String(row[idx.startIst] || "").trim()
-        : (idx.startUtc >= 0 ? String(row[idx.startUtc] || "").trim() : "");
-      const endInput = idx.endIst >= 0
-        ? String(row[idx.endIst] || "").trim()
-        : (idx.endUtc >= 0 ? String(row[idx.endUtc] || "").trim() : "");
+      const startRaw = idx.startIst >= 0
+        ? row[idx.startIst]
+        : (idx.startUtc >= 0 ? row[idx.startUtc] : "");
+      const endRaw = idx.endIst >= 0
+        ? row[idx.endIst]
+        : (idx.endUtc >= 0 ? row[idx.endUtc] : "");
       const actuallyActiveRaw = idx.actuallyActive >= 0 ? String(row[idx.actuallyActive] || "FALSE").trim() : "FALSE";
       const link = idx.link >= 0 ? String(row[idx.link] || "").trim() : "";
       const visibleRaw = idx.visible >= 0 ? String(row[idx.visible] || "TRUE").trim() : "TRUE";
 
       const actuallyActive = /^(true|1|yes|y)$/i.test(actuallyActiveRaw);
       const visible = /^(true|1|yes|y)$/i.test(visibleRaw);
-      const startUtc = parseInputToUtcIso(startInput);
-      const endUtc = parseInputToUtcIso(endInput);
+      const startUtc = parseCellToUtcIso(startRaw);
+      const endUtc = parseCellToUtcIso(endRaw);
 
       if (!visible || !title || !startUtc || !endUtc) {
         continue;
@@ -106,30 +106,35 @@ function getLastChangedUtc() {
   return PropertiesService.getScriptProperties().getProperty(LAST_CHANGED_PROP) || null;
 }
 
-function parseInputToUtcIso(rawValue) {
-  if (!rawValue) {
+function parseCellToUtcIso(rawValue) {
+  if (rawValue === null || rawValue === undefined || rawValue === "") {
     return null;
   }
 
-  // If timezone info is already present, use it directly.
-  if (/z$/i.test(rawValue) || /[+-]\d\d:\d\d$/.test(rawValue)) {
-    const dated = new Date(rawValue);
-    if (isNaN(dated.getTime())) {
-      return null;
-    }
-    return dated.toISOString();
+  // Convert to string — GAS date objects produce e.g.
+  // "Sat Jul 25 2026 17:00:00 GMT+0530 (India Standard Time)"
+  // which new Date() can parse directly, timezone included.
+  const str = String(rawValue).trim();
+  if (!str) {
+    return null;
   }
 
-  // Parse IST text like "YYYY-MM-DDTHH:mm", "YYYY-MM-DD HH:mm", optionally with seconds.
-  const match = rawValue.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
+  // Try direct parse first — handles GAS date objects and any ISO/RFC strings.
+  const direct = new Date(str);
+  if (!isNaN(direct.getTime())) {
+    return direct.toISOString();
+  }
+
+  // Fallback: plain IST text without timezone, e.g. "2026-07-26 19:00" or "2026-07-26T19:00".
+  const match = str.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
   if (!match) {
     return null;
   }
 
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const hour = Number(match[4]);
+  const year   = Number(match[1]);
+  const month  = Number(match[2]);
+  const day    = Number(match[3]);
+  const hour   = Number(match[4]);
   const minute = Number(match[5]);
   const second = Number(match[6] || "0");
 

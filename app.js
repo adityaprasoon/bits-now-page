@@ -28,6 +28,30 @@ function formatIst(isoDateTime) {
   }).format(date) + " IST";
 }
 
+const URGENCY_THRESHOLDS = {
+  quiz: 6 * 60 * 60 * 1000,           // 6 hours
+  assignment: 2 * 24 * 60 * 60 * 1000  // 2 days
+};
+const URGENCY_DEFAULT_MS = 6 * 60 * 60 * 1000;
+
+function formatDuration(ms) {
+  if (ms <= 0) return "0m";
+  const totalMins = Math.floor(ms / 60000);
+  const days  = Math.floor(totalMins / 1440);
+  const hours = Math.floor((totalMins % 1440) / 60);
+  const mins  = totalMins % 60;
+  if (days > 0)  return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+  if (hours > 0) return mins  > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  return `${mins}m`;
+}
+
+function urgencyThreshold(title) {
+  const t = title.toLowerCase();
+  if (t.includes("quiz"))       return URGENCY_THRESHOLDS.quiz;
+  if (t.includes("assignment")) return URGENCY_THRESHOLDS.assignment;
+  return URGENCY_DEFAULT_MS;
+}
+
 function showError(message) {
   errorBoxEl.textContent = message;
   errorBoxEl.classList.remove("hidden");
@@ -38,19 +62,40 @@ function hideError() {
   errorBoxEl.classList.add("hidden");
 }
 
-function eventCard(event, styleClass, labels = { start: "Start", end: "End" }) {
+function eventCard(event, styleClass, labels = { start: "Start", end: "End" }, serverNow = null) {
   const safeDesc = event.description ? `<p>${event.description}</p>` : "";
   const linkHtml = event.link
     ? `<div class=\"link-row\"><a href=\"${event.link}\" target=\"_blank\" rel=\"noopener noreferrer\">Open Event Link</a></div>`
     : "";
 
+  const startDate = new Date(event.startUtc);
+  const endDate   = new Date(event.endUtc);
+  const totalMs   = endDate - startDate;
+  const totalStr  = formatDuration(totalMs);
+
+  let timeLeftHtml = "";
+  let urgentClass  = "";
+  if (serverNow !== null) {
+    const msLeft = endDate - serverNow;
+    timeLeftHtml = `<span class="time-left ${msLeft < urgencyThreshold(event.title) ? 'time-left-urgent' : ''}">
+      ⏳ ${formatDuration(msLeft)} left
+    </span>`;
+    if (msLeft < urgencyThreshold(event.title)) {
+      urgentClass = "urgent";
+    }
+  }
+
   return `
-    <article class="card ${styleClass}">
+    <article class="card ${styleClass} ${urgentClass}">
       <h3>${event.title}</h3>
       ${safeDesc}
       <div class="time-row">
         <span>${labels.start}: ${formatIst(event.startUtc)}</span>
         <span>${labels.end}: ${formatIst(event.endUtc)}</span>
+      </div>
+      <div class="duration-row">
+        <span class="duration-total">Duration: ${totalStr}</span>
+        ${timeLeftHtml}
       </div>
       ${linkHtml}
     </article>
@@ -87,7 +132,7 @@ function renderBoard(payload, fromCache = false) {
   passed.sort((a, b) => new Date(b.endUtc) - new Date(a.endUtc));
 
   activeEventsEl.innerHTML = active.length
-    ? active.map((e) => eventCard(e, "active", { start: "Start (IST)", end: "End (IST)" })).join("")
+    ? active.map((e) => eventCard(e, "active", { start: "Start (IST)", end: "End (IST)" }, serverNow)).join("")
     : '<p class="empty">No active events right now.</p>';
 
   const upcomingTop = upcoming.slice(0, 2);
