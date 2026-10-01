@@ -600,6 +600,8 @@ async function signIn(event) {
     showSuccess("Signed in.");
   } catch (error) {
     saveSession(null);
+    loginPanel.classList.remove("hidden");
+    adminPanel.classList.add("hidden");
     showError(error.message || "Sign-in failed.");
   }
 }
