@@ -1,9 +1,12 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbySvLSySSBP-jLQpAXwzDGgRbW1ySHfKVNbIU63PcJSc1JorxnG0Sb625i4rF1jhBcirw/exec";
 const REFRESH_INTERVAL_MS = 60 * 1000;
 const STALE_AFTER_MS = 30 * 60 * 1000;
 const IST_TIMEZONE = "Asia/Kolkata";
-const CACHE_KEY = "now-page-last-good-payload";
+const CACHE_KEY = "now-page-supabase-last-good-payload";
 const CACHE_UPDATED_AT_KEY = "now-page-last-successful-refresh";
+const FAVORITES_KEY = "now-page-favorite-subjects";
+const SUPABASE_CONFIG = window.SUPABASE_CONFIG || {};
+const SUPABASE_URL = (SUPABASE_CONFIG.url || "").replace(/\/+$/, "");
+const SUPABASE_ANON_KEY = SUPABASE_CONFIG.anonKey || "";
 
 const activeEventsEl = document.getElementById("active-events");
 const upcomingEventsEl = document.getElementById("upcoming-events");
@@ -11,39 +14,67 @@ const passedEventsEl = document.getElementById("passed-events");
 const upcomingSectionEl = document.getElementById("upcoming-section");
 const passedSectionEl = document.getElementById("passed-section");
 const lastUpdatedEl = document.getElementById("last-updated");
-const sheetLastChangedEl = document.getElementById("sheet-last-changed");
+const dataLastChangedEl = document.getElementById("data-last-changed");
 const errorBoxEl = document.getElementById("error-box");
 const clockTextEl = document.getElementById("clock-text");
 const refreshButtonEl = document.getElementById("refresh-button");
+const subjectFilterEl = document.getElementById("subject-filter");
+const favoritesDialogEl = document.getElementById("favorites-dialog");
+const favoritesListEl = document.getElementById("favorites-list");
+const saveFavoritesButtonEl = document.getElementById("save-favorites");
+const clearFavoritesButtonEl = document.getElementById("clear-favorites");
+const manageFavoritesButtonEl = document.getElementById("manage-favorites");
 
-function getCachedRefreshTime() {
+function readStorage(key, fallback) {
   try {
-    const cachedTime = Number(localStorage.getItem(CACHE_UPDATED_AT_KEY));
-    return Number.isFinite(cachedTime) && cachedTime > 0 ? cachedTime : Date.now();
+    const value = localStorage.getItem(key);
+    return value === null ? fallback : value;
   } catch (_err) {
-    return Date.now();
+    return fallback;
   }
 }
 
-let lastSuccessfulFetchAt = getCachedRefreshTime();
-let isFetching = false;
-
-function updateRefreshButton() {
-  const isStale = Date.now() - lastSuccessfulFetchAt >= STALE_AFTER_MS;
-  refreshButtonEl.classList.toggle("stale", isStale);
-  refreshButtonEl.setAttribute(
-    "aria-label",
-    isStale ? "Refresh event data. Data may be stale." : "Refresh event data"
-  );
-  refreshButtonEl.innerHTML = isStale
-    ? '<span aria-hidden="true">↻</span> Refresh — data may be stale'
-    : '<span aria-hidden="true">↻</span> Refresh';
+function readFavoriteIds() {
+  try {
+    const parsed = JSON.parse(readStorage(FAVORITES_KEY, "[]"));
+    return Array.isArray(parsed) ? parsed.filter((id) => typeof id === "string") : [];
+  } catch (_err) {
+    return [];
+  }
 }
+
+function writeStorage(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch (_err) {
+    showError("Browser storage is unavailable. Favourite subjects may not be saved.");
+  }
+}
+
+let favoriteSubjectIds = readFavoriteIds();
+let subjects = [];
+let allEvents = [];
+let lastSuccessfulFetchAt = Number(readStorage(CACHE_UPDATED_AT_KEY, Date.now()));
+if (!Number.isFinite(lastSuccessfulFetchAt) || lastSuccessfulFetchAt <= 0) {
+  lastSuccessfulFetchAt = Date.now();
+}
+let isFetching = false;
 
 clockTextEl.textContent = "All times are shown in IST";
 
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[character]);
+}
+
 function formatIst(isoDateTime) {
   const date = new Date(isoDateTime);
+  if (Number.isNaN(date.getTime())) return "Time unavailable";
   return new Intl.DateTimeFormat("en-IN", {
     timeZone: IST_TIMEZONE,
     year: "numeric",
@@ -56,26 +87,26 @@ function formatIst(isoDateTime) {
 }
 
 const URGENCY_THRESHOLDS = {
-  quiz: 6 * 60 * 60 * 1000,           // 6 hours
-  assignment: 2 * 24 * 60 * 60 * 1000  // 2 days
+  quiz: 6 * 60 * 60 * 1000,
+  assignment: 2 * 24 * 60 * 60 * 1000
 };
 const URGENCY_DEFAULT_MS = 6 * 60 * 60 * 1000;
 
 function formatDuration(ms) {
   if (ms <= 0) return "0m";
   const totalMins = Math.floor(ms / 60000);
-  const days  = Math.floor(totalMins / 1440);
+  const days = Math.floor(totalMins / 1440);
   const hours = Math.floor((totalMins % 1440) / 60);
-  const mins  = totalMins % 60;
-  if (days > 0)  return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
-  if (hours > 0) return mins  > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  const mins = totalMins % 60;
+  if (days > 0) return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+  if (hours > 0) return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
   return `${mins}m`;
 }
 
 function urgencyThreshold(title) {
-  const t = title.toLowerCase();
-  if (t.includes("quiz"))       return URGENCY_THRESHOLDS.quiz;
-  if (t.includes("assignment")) return URGENCY_THRESHOLDS.assignment;
+  const normalizedTitle = String(title).toLowerCase();
+  if (normalizedTitle.includes("quiz")) return URGENCY_THRESHOLDS.quiz;
+  if (normalizedTitle.includes("assignment")) return URGENCY_THRESHOLDS.assignment;
   return URGENCY_DEFAULT_MS;
 }
 
@@ -89,136 +120,226 @@ function hideError() {
   errorBoxEl.classList.add("hidden");
 }
 
-function eventCard(event, styleClass, labels = { start: "Start", end: "End" }, serverNow = null) {
-  const safeDesc = event.description ? `<p>${event.description}</p>` : "";
-  const linkHtml = event.link
-    ? `<div class=\"link-row\"><a href=\"${event.link}\" target=\"_blank\" rel=\"noopener noreferrer\">Open Event Link</a></div>`
-    : "";
-
-  const startDate = new Date(event.startUtc);
-  const endDate   = new Date(event.endUtc);
-  const totalMs   = endDate - startDate;
-  const totalStr  = formatDuration(totalMs);
-
-  let timeLeftHtml = "";
-  let urgentClass  = "";
-  if (serverNow !== null) {
-    const msLeft = endDate - serverNow;
-    timeLeftHtml = `<span class="time-left ${msLeft < urgencyThreshold(event.title) ? 'time-left-urgent' : ''}">
-      ⏳ ${formatDuration(msLeft)} left
-    </span>`;
-    if (msLeft < urgencyThreshold(event.title)) {
-      urgentClass = "urgent";
-    }
+function safeLink(value) {
+  if (!value) return "";
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return "";
+    return `<div class="link-row"><a href="${escapeHtml(url.href)}" target="_blank" rel="noopener noreferrer">Open Event Link</a></div>`;
+  } catch (_err) {
+    return "";
   }
+}
+
+function eventCard(event, styleClass, serverNow, labels) {
+  const startDate = new Date(event.start_at);
+  const endDate = new Date(event.end_at);
+  const duration = formatDuration(endDate - startDate);
+  const msLeft = endDate - serverNow;
+  const urgent = msLeft < urgencyThreshold(event.title);
+  const subject = event.subject || {};
 
   return `
-    <article class="card ${styleClass} ${urgentClass}">
-      <h3>${event.title}</h3>
-      ${safeDesc}
+    <article class="card ${styleClass} ${urgent && styleClass === "active" ? "urgent" : ""}">
+      <div class="subject-identity">
+        <span class="subject-code">${escapeHtml(subject.code || "Subject")}</span>
+        <span class="subject-name">${escapeHtml(subject.name || "")}</span>
+      </div>
+      <h3>${escapeHtml(event.title)}</h3>
+      ${event.description ? `<p>${escapeHtml(event.description)}</p>` : ""}
       <div class="time-row">
-        <span>${labels.start}: ${formatIst(event.startUtc)}</span>
-        <span>${labels.end}: ${formatIst(event.endUtc)}</span>
+        <span>${labels.start}: ${formatIst(event.start_at)}</span>
+        <span>${labels.end}: ${formatIst(event.end_at)}</span>
       </div>
       <div class="duration-row">
-        <span class="duration-total">Duration: ${totalStr}</span>
-        ${timeLeftHtml}
+        <span class="duration-total">Duration: ${duration}</span>
+        ${styleClass === "active" ? `<span class="time-left ${urgent ? "time-left-urgent" : ""}">⏳ ${formatDuration(msLeft)} left</span>` : ""}
       </div>
-      ${linkHtml}
+      ${safeLink(event.link)}
     </article>
   `;
 }
 
-function renderBoard(payload, fromCache = false) {
-  const serverNow = new Date(payload.serverNowUtc);
-  const events = payload.events || [];
+function currentSubjectFilter() {
+  return subjectFilterEl.value || (favoriteSubjectIds.length ? "favorites" : "all");
+}
 
+function getVisibleEvents() {
+  const filter = currentSubjectFilter();
+  if (filter === "all") return allEvents;
+  const favorites = new Set(favoriteSubjectIds);
+  return allEvents.filter((event) => favorites.has(event.subject_id));
+}
+
+function renderBoard() {
+  const now = new Date();
+  const events = getVisibleEvents().filter((event) => !event.is_hidden);
   const active = [];
   const upcoming = [];
   const passed = [];
 
   events.forEach((event) => {
-    const end = new Date(event.endUtc);
-    const actuallyActive = Boolean(event.actuallyActive);
-
-    // Past events are always derived from time window end.
-    if (serverNow > end) {
-      passed.push(event);
-      return;
-    }
-
-    if (actuallyActive) {
+    const start = new Date(event.start_at);
+    const end = new Date(event.end_at);
+    if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) return;
+    if (now >= start && now <= end) {
       active.push(event);
-      return;
+    } else if (now < start) {
+      upcoming.push(event);
+    } else if (now > end) {
+      passed.push(event);
     }
-
-    upcoming.push(event);
   });
 
-  upcoming.sort((a, b) => new Date(a.startUtc) - new Date(b.startUtc));
-  passed.sort((a, b) => new Date(b.endUtc) - new Date(a.endUtc));
+  upcoming.sort((a, b) => new Date(a.start_at) - new Date(b.start_at));
+  passed.sort((a, b) => new Date(b.end_at) - new Date(a.end_at));
+  active.sort((a, b) => new Date(a.end_at) - new Date(b.end_at));
 
   activeEventsEl.innerHTML = active.length
-    ? active.map((e) => eventCard(e, "active", { start: "Start (IST)", end: "End (IST)" }, serverNow)).join("")
+    ? active.map((event) => eventCard(event, "active", now, { start: "Start (IST)", end: "End (IST)" })).join("")
     : '<p class="empty">No active events right now.</p>';
 
   const upcomingTop = upcoming.slice(0, 2);
-  if (upcomingTop.length) {
-    upcomingEventsEl.innerHTML = upcomingTop
-      .map((e) => eventCard(e, "", { start: "Expected start (IST)", end: "Expected end (IST)" }))
-      .join("");
-    upcomingSectionEl.classList.remove("hidden");
-  } else {
-    upcomingEventsEl.innerHTML = "";
-    upcomingSectionEl.classList.add("hidden");
-  }
+  upcomingEventsEl.innerHTML = upcomingTop
+    .map((event) => eventCard(event, "", now, { start: "Expected start (IST)", end: "Expected end (IST)" }))
+    .join("");
+  upcomingSectionEl.classList.toggle("hidden", !upcomingTop.length);
 
   const passedTop = passed.slice(0, 2);
-  if (passedTop.length) {
-    passedEventsEl.innerHTML = passedTop.map((e) => eventCard(e, "past", { start: "Start (IST)", end: "End (IST)" })).join("");
-    passedSectionEl.classList.remove("hidden");
-  } else {
-    passedEventsEl.innerHTML = "";
-    passedSectionEl.classList.add("hidden");
-  }
-
-  const suffix = fromCache ? " (cached)" : "";
-  lastUpdatedEl.textContent = `Last refreshed: ${formatIst(payload.serverNowUtc)}${suffix}`;
-
-  if (payload.lastChangedUtc) {
-    sheetLastChangedEl.textContent = `Last updated (sheet): ${formatIst(payload.lastChangedUtc)}`;
-  } else {
-    sheetLastChangedEl.textContent = "Last updated (sheet): Not available yet";
-  }
+  passedEventsEl.innerHTML = passedTop
+    .map((event) => eventCard(event, "past", now, { start: "Start (IST)", end: "End (IST)" }))
+    .join("");
+  passedSectionEl.classList.toggle("hidden", !passedTop.length);
 }
 
-function saveCache(payload) {
-  try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
-  } catch (_err) {
-    // Ignore storage failures in private browsing modes.
+function renderSubjectFilter() {
+  const previouslySelected = subjectFilterEl.value;
+  subjectFilterEl.replaceChildren();
+  const favoritesOption = new Option("Favourite subjects", "favorites");
+  favoritesOption.disabled = favoriteSubjectIds.length === 0;
+  subjectFilterEl.add(favoritesOption);
+  subjectFilterEl.add(new Option("All subjects", "all"));
+
+  const defaultFilter = favoriteSubjectIds.length ? "favorites" : "all";
+  subjectFilterEl.value = ["favorites", "all"].includes(previouslySelected)
+    && (previouslySelected !== "favorites" || favoriteSubjectIds.length)
+    ? previouslySelected
+    : defaultFilter;
+  renderBoard();
+}
+
+function renderFavoritesDialog() {
+  const draftFavorites = new Set(favoriteSubjectIds);
+  favoritesListEl.replaceChildren();
+  if (!subjects.length) {
+    const empty = document.createElement("p");
+    empty.className = "empty";
+    empty.textContent = "No subjects are available yet.";
+    favoritesListEl.append(empty);
+    return;
   }
+
+  subjects.forEach((subject) => {
+    const label = document.createElement("label");
+    label.className = "favorite-option";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = subject.id;
+    checkbox.checked = draftFavorites.has(subject.id);
+    const identity = document.createElement("span");
+    identity.className = "favorite-option-identity";
+    const code = document.createElement("strong");
+    code.textContent = subject.code;
+    const name = document.createElement("span");
+    name.textContent = subject.name;
+    identity.append(code, name);
+    label.append(checkbox, identity);
+    favoritesListEl.append(label);
+  });
 }
 
 function loadCache() {
   try {
-    const raw = localStorage.getItem(CACHE_KEY);
-    if (!raw) {
-      return null;
-    }
-    return JSON.parse(raw);
+    const raw = readStorage(CACHE_KEY, "");
+    return raw ? JSON.parse(raw) : null;
   } catch (_err) {
     return null;
   }
 }
 
-async function fetchAndRender() {
-  if (isFetching) {
-    return;
-  }
+function saveCache(payload) {
+  writeStorage(CACHE_KEY, JSON.stringify(payload));
+}
 
-  if (API_URL.includes("PASTE_YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE")) {
-    showError("Set your Google Apps Script Web App URL in app.js before publishing.");
+function updateRefreshButton() {
+  const isStale = Date.now() - lastSuccessfulFetchAt >= STALE_AFTER_MS;
+  refreshButtonEl.classList.toggle("stale", isStale);
+  refreshButtonEl.setAttribute(
+    "aria-label",
+    isStale ? "Refresh event data. Data may be stale." : "Refresh event data"
+  );
+  refreshButtonEl.innerHTML = isStale
+    ? '<span aria-hidden="true">↻</span> Refresh — data may be stale'
+    : '<span aria-hidden="true">↻</span> Refresh';
+}
+
+function applyPayload(payload) {
+  subjects = Array.isArray(payload.subjects) ? payload.subjects : [];
+  allEvents = Array.isArray(payload.events) ? payload.events : [];
+  const validIds = new Set(subjects.map((subject) => subject.id));
+  favoriteSubjectIds = favoriteSubjectIds.filter((id) => validIds.has(id));
+  writeStorage(FAVORITES_KEY, JSON.stringify(favoriteSubjectIds));
+  renderSubjectFilter();
+
+  lastUpdatedEl.textContent = `Last refreshed: ${formatIst(payload.serverNowUtc)}`;
+  dataLastChangedEl.textContent = payload.lastChangedUtc
+    ? `Last updated: ${formatIst(payload.lastChangedUtc)}`
+    : "Last updated: Not available yet";
+}
+
+async function fetchSupabaseTable(table, query) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
+    cache: "no-store",
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: "Bearer " + SUPABASE_ANON_KEY,
+    }
+  });
+  if (!response.ok) {
+    const message = response.status === 401 || response.status === 403
+      ? "Supabase rejected the public read. Check the project URL, publishable key, and RLS policies."
+      : `Supabase request failed (${response.status}).`;
+    throw new Error(message);
+  }
+  return response.json();
+}
+
+async function fetchBoardData() {
+  const [subjectRows, eventRows, metadataRows] = await Promise.all([
+    fetchSupabaseTable("subjects", "select=id,code,name&order=code.asc"),
+    fetchSupabaseTable(
+      "events",
+      "select=id,subject_id,title,description,start_at,end_at,is_hidden,link,subjects(code,name)&is_hidden=eq.false&order=start_at.asc"
+    ),
+    fetchSupabaseTable("content_metadata", "select=updated_at&limit=1")
+  ]);
+
+  return {
+    serverNowUtc: new Date().toISOString(),
+    lastChangedUtc: metadataRows[0]?.updated_at || null,
+    subjects: subjectRows,
+    events: eventRows.map((event) => ({
+      ...event,
+      subject: Array.isArray(event.subjects) ? event.subjects[0] : event.subjects,
+      subjects: undefined
+    }))
+  };
+}
+
+async function fetchAndRender() {
+  if (isFetching) return;
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    showError("Add your Supabase project URL and publishable key to supabase-config.js to load event data.");
     return;
   }
 
@@ -228,30 +349,21 @@ async function fetchAndRender() {
   refreshButtonEl.innerHTML = '<span aria-hidden="true">↻</span> Refreshing…';
 
   try {
-    const response = await fetch(API_URL, { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error(`Request failed with status ${response.status}`);
-    }
-
-    const payload = await response.json();
-    lastSuccessfulFetchAt = Date.now();
-    try {
-      localStorage.setItem(CACHE_UPDATED_AT_KEY, String(lastSuccessfulFetchAt));
-    } catch (_err) {
-      // Keep the refresh timestamp in memory when storage is unavailable.
-    }
-    renderBoard(payload, false);
+    const payload = await fetchBoardData();
+    applyPayload(payload);
     saveCache(payload);
+    lastSuccessfulFetchAt = Date.now();
+    writeStorage(CACHE_UPDATED_AT_KEY, String(lastSuccessfulFetchAt));
     hideError();
-  } catch (err) {
-    const fallback = loadCache();
-    if (fallback) {
-      renderBoard(fallback, true);
-      showError("Live data is temporarily unavailable. Showing last successful update.");
+  } catch (error) {
+    const cachedPayload = loadCache();
+    if (cachedPayload) {
+      applyPayload(cachedPayload);
+      showError(`Live data is unavailable. Showing the last saved data. ${error.message}`);
     } else {
-      showError("Unable to load event data right now. Please retry in a minute.");
+      showError(error.message || "Unable to load event data. Check your Supabase connection.");
     }
-    console.error("Now Page fetch failed:", err);
+    console.error("Supabase data fetch failed:", error);
   } finally {
     isFetching = false;
     refreshButtonEl.disabled = false;
@@ -260,6 +372,29 @@ async function fetchAndRender() {
   }
 }
 
+document.getElementById("manage-favorites").addEventListener("click", () => {
+  renderFavoritesDialog();
+  favoritesDialogEl.showModal();
+});
+
+saveFavoritesButtonEl.addEventListener("click", () => {
+  favoriteSubjectIds = Array.from(
+    favoritesListEl.querySelectorAll('input[type="checkbox"]:checked'),
+    (checkbox) => checkbox.value
+  );
+  writeStorage(FAVORITES_KEY, JSON.stringify(favoriteSubjectIds));
+  subjectFilterEl.value = favoriteSubjectIds.length ? "favorites" : "all";
+  favoritesDialogEl.close();
+  renderBoard();
+});
+
+clearFavoritesButtonEl.addEventListener("click", () => {
+  favoritesListEl.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+    checkbox.checked = false;
+  });
+});
+
+subjectFilterEl.addEventListener("change", renderBoard);
 refreshButtonEl.addEventListener("click", fetchAndRender);
 updateRefreshButton();
 setInterval(updateRefreshButton, 60 * 1000);

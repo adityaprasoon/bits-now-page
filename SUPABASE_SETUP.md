@@ -1,6 +1,6 @@
 # Supabase setup
 
-This guide prepares a Supabase project for the application. It does not create the Supabase account or project for you, and it does not migrate the public page off Google Apps Script yet.
+This guide prepares a Supabase project for the application. It does not create the Supabase account or project for you. The public page now reads event data from Supabase after its browser configuration is filled in; admin login and management pages remain a later implementation step.
 
 ## 1. Create a project
 
@@ -20,6 +20,23 @@ The schema is in [`supabase/migrations/20261001000000_initial_schema.sql`](supab
 3. Check the result for errors before proceeding.
 
 The migration creates subjects, events, admin profiles, subject assignments, public content metadata, indexes, timestamp triggers, and row-level security policies. It does not add sample records.
+
+After the migration succeeds, configure the public page:
+
+1. In the dashboard, open **Project Settings → API** (or **Data API**) and copy the Project URL and the publishable key. A legacy `anon` key is also accepted.
+2. Put these in `/home/runner/work/bits-now-page/bits-now-page/supabase-config.js`:
+
+   ```js
+   window.SUPABASE_CONFIG = {
+     url: "https://YOUR_PROJECT_REF.supabase.co",
+     anonKey: "YOUR_PUBLISHABLE_OR_ANON_KEY"
+   };
+   ```
+
+3. The publishable/anon key is intended to be public browser configuration; RLS must remain enabled. Never put the `service_role` key or database password in this file.
+4. Deploy the static website, then open it and check that subjects/events load. If none have been entered yet, an empty board is expected. Browser developer tools can show API errors; a `401`/`403` usually indicates a URL/key or RLS/grant issue.
+
+The page queries public subjects, non-hidden events, and the last content update. It refreshes automatically once per minute and also has a manual refresh. Favourites are saved in local browser storage and are not sent to Supabase.
 
 ### Supabase CLI (versioned workflow)
 
