@@ -16,16 +16,14 @@ create unique index profiles_single_super_admin
 
 create table public.subjects (
   id uuid primary key default gen_random_uuid(),
-  code text not null check (length(trim(code)) > 0),
+  code text not null check (code = trim(code) and length(code) > 0),
   name text not null check (length(trim(name)) > 0),
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  created_by uuid references auth.users (id) on delete set null,
-  updated_by uuid references auth.users (id) on delete set null
+  updated_at timestamptz not null default now()
 );
 
 create unique index subjects_code_case_insensitive
-  on public.subjects (lower(code));
+  on public.subjects (lower(trim(code)));
 
 create table public.subject_admins (
   admin_user_id uuid not null references public.profiles (user_id) on delete cascade,
@@ -48,8 +46,6 @@ create table public.events (
   link text check (link is null or link ~* '^https?://'),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  created_by uuid references auth.users (id) on delete set null,
-  updated_by uuid references auth.users (id) on delete set null,
   constraint events_end_after_start check (end_at > start_at)
 );
 
@@ -61,8 +57,7 @@ create index events_visible_subject_start
 
 create table public.content_metadata (
   id boolean primary key default true check (id),
-  updated_at timestamptz not null default now(),
-  updated_by uuid references auth.users (id) on delete set null
+  updated_at timestamptz not null default now()
 );
 
 insert into public.content_metadata (id) values (true);
@@ -164,8 +159,7 @@ set search_path = ''
 as $$
 begin
   update public.content_metadata
-  set updated_at = now(),
-      updated_by = auth.uid()
+  set updated_at = now()
   where id = true;
 
   if tg_op = 'DELETE' then
@@ -203,7 +197,7 @@ alter table public.content_metadata enable row level security;
 
 grant select on public.subjects to anon, authenticated;
 grant select on public.events to anon, authenticated;
-grant select on public.content_metadata to anon, authenticated;
+grant select (updated_at) on public.content_metadata to anon, authenticated;
 grant select on public.profiles, public.subject_admins to authenticated;
 grant insert, update, delete on public.subjects to authenticated;
 grant insert, update, delete on public.events to authenticated;
@@ -272,4 +266,4 @@ create policy "Admins can read their own assignments; super admin can read all"
 create policy "Last content update is public"
   on public.content_metadata for select
   to anon, authenticated
-  using (id = true);
+  using (true);

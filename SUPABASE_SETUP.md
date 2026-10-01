@@ -63,6 +63,17 @@ For local function development, use a private `.env` file with `SUPABASE_URL`, `
 
 Admin creation requires an email, a temporary password (12–128 characters), display name, and an array of assigned subject UUIDs. Deliver initial/reset passwords to the admin privately. Only a super admin can call these operations. Admins can edit events only for their assigned subjects; event changes and subject changes update the public `content_metadata.updated_at` value.
 
+The function accepts JSON POST requests with the caller's bearer token:
+
+| `action` | Required fields |
+| --- | --- |
+| `create` | `email`, `password`, `display_name`, `subject_ids` |
+| `update` | `user_id`; optional `email`, `display_name`, `subject_ids` |
+| `reset_password` | `user_id`, `password` |
+| `delete` | `user_id` |
+
+Use `subject_ids: []` to remove all subject assignments. The browser-facing function URL can be configured in the future admin interface; it never needs the service-role key.
+
 ## 5. Authentication and access rules
 
 In **Authentication → Settings**, disable public sign-ups. Use the dashboard to create the first super admin, then use a protected admin interface calling `manage-admin` to manage admin accounts. Configure the deployed website origin in Supabase's Auth URL settings when the app adds login and redirects.
