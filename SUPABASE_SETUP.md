@@ -1,6 +1,6 @@
 # Supabase setup
 
-This guide prepares a Supabase project for the application. It does not create the Supabase account or project for you. The public page now reads event data from Supabase after its browser configuration is filled in; admin login and management pages remain a later implementation step.
+This guide prepares a Supabase project for the application. It does not create the Supabase account or project for you. The public page reads from Supabase after browser configuration is filled in, and the admin login/management page is available at `/admin.html`.
 
 ## 1. Create a project
 
