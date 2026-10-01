@@ -67,7 +67,7 @@ The profile and role are separate from the Auth password: Supabase Auth stores a
 
 ## 4. Deploy protected admin account operations
 
-The `manage-admin` Edge Function checks the caller's Supabase Auth token and confirms the caller has the `super_admin` role before it uses the server-only service-role key. It supports creating, updating, deleting, and resetting the password for admin accounts. It cannot modify or delete the super-admin account.
+The `manage-admin` Edge Function checks the caller's Supabase Auth token and confirms the caller has the `super_admin` role before it uses the server-only service-role key. It supports listing, creating, updating, deleting, and resetting the password for admin accounts. It cannot modify or delete the super-admin account.
 
 The function requires the exact deployed website origin as `APP_ALLOWED_ORIGIN`. Set it in Supabase's function secrets; the platform supplies the project URL and standard Supabase keys to deployed functions:
 
@@ -84,18 +84,21 @@ The function accepts JSON POST requests with the caller's bearer token:
 
 | `action` | Required fields |
 | --- | --- |
+| `list` | none |
 | `create` | `email`, `password`, `display_name`, `subject_ids` |
 | `update` | `user_id`; optional `email`, `display_name`, `subject_ids` |
 | `reset_password` | `user_id`, `password` |
 | `delete` | `user_id` |
 
-Use `subject_ids: []` to remove all subject assignments. The browser-facing function URL can be configured in the future admin interface; it never needs the service-role key.
+Use `subject_ids: []` to remove all subject assignments. The browser-facing admin page calls this function with the signed-in super admin's token; it never needs the service-role key. If you deployed an earlier version of this function, redeploy it after pulling the latest repository changes so it includes the `list` action.
 
 ## 5. Authentication and access rules
 
-In **Authentication → Settings**, disable public sign-ups. Use the dashboard to create the first super admin, then use a protected admin interface calling `manage-admin` to manage admin accounts. Configure the deployed website origin in Supabase's Auth URL settings when the app adds login and redirects.
+In **Authentication → Settings**, disable public sign-ups. Use the dashboard to create the first super admin. Admins then sign in at `/admin.html`; the page reads the profile role and only shows super-admin controls to the super admin. Configure your deployed website origin in Supabase's Auth URL settings and configure the same exact origin as `APP_ALLOWED_ORIGIN` for the Edge Function.
 
-The public client may use the publishable/anon key only after RLS is enabled (as in this migration). It may read subjects, non-hidden events, and the latest content-update timestamp; it cannot write data. A logged-in assigned admin can see hidden events and manage events for assigned subjects. Super admins can manage events for every subject. Only the protected function uses the service-role key for admin-account operations.
+The public page may use the publishable/anon key only after RLS is enabled (as in this migration). It may read subjects, non-hidden events, and the latest content-update timestamp; it cannot write data. Favourites remain in local browser storage and are not sent to Supabase. A logged-in assigned admin can see hidden events and manage events for assigned subjects. Super admins can manage events for every subject. Only the protected function uses the service-role key for admin-account operations.
+
+Admin login sessions are stored in that browser's local storage so they persist across reloads. Sign out on shared devices. Admin event start/end form values are interpreted as IST and stored as `timestamptz` instants; deleting an event permanently removes its row. Deleting a subject also permanently deletes its events because of the database foreign-key cascade.
 
 Event `start_at` and `end_at` are PostgreSQL `timestamptz` values: they represent instants, not wall-clock strings. Pass an explicit IST offset when creating timestamps (for example `2026-10-01T09:00:00+05:30`) and format them in `Asia/Kolkata` in the UI. Event rows also retain the existing optional link field.
 

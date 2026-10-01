@@ -130,6 +130,53 @@ async function handleCreate(body: Record<string, unknown>) {
   return jsonResponse(201, { user_id: user.id });
 }
 
+async function handleList() {
+  const profileQuery = new URLSearchParams({
+    select: "user_id,display_name,created_at",
+    role: "eq.admin",
+    order: "display_name.asc"
+  });
+  const [profileResponse, userResponse, assignmentResponse] = await Promise.all([
+    fetch(`${supabaseUrl}/rest/v1/profiles?${profileQuery}`, {
+      headers: serviceHeaders()
+    }),
+    fetch(`${supabaseUrl}/auth/v1/admin/users?page=1&per_page=1000`, {
+      headers: serviceHeaders()
+    }),
+    fetch(`${supabaseUrl}/rest/v1/subject_admins?select=admin_user_id,subject_id`, {
+      headers: serviceHeaders()
+    })
+  ]);
+  const [adminProfiles, authUsers, assignments] = await Promise.all([
+    checkResponse(profileResponse),
+    checkResponse(userResponse),
+    checkResponse(assignmentResponse)
+  ]);
+  const emailByUserId = new Map(
+    (authUsers.users || []).map((user: { id: string; email?: string }) => [user.id, user.email || ""])
+  );
+  const subjectsByUserId = new Map<string, string[]>();
+  for (const assignment of assignments) {
+    const subjectIds = subjectsByUserId.get(assignment.admin_user_id) || [];
+    subjectIds.push(assignment.subject_id);
+    subjectsByUserId.set(assignment.admin_user_id, subjectIds);
+  }
+
+  return jsonResponse(200, {
+    admins: adminProfiles.map((admin: {
+      user_id: string;
+      display_name: string;
+      created_at: string;
+    }) => ({
+      user_id: admin.user_id,
+      email: emailByUserId.get(admin.user_id) || "",
+      display_name: admin.display_name,
+      created_at: admin.created_at,
+      subject_ids: subjectsByUserId.get(admin.user_id) || []
+    }))
+  });
+}
+
 async function handleUpdate(body: Record<string, unknown>, userId: string) {
   const profile = await getAdminProfile(userId);
   if (!profile) {
@@ -259,6 +306,8 @@ Deno.serve(async (request: Request) => {
       return jsonResponse(400, { error: "Invalid request body." });
     }
     switch (body.action) {
+      case "list":
+        return await handleList();
       case "create":
         return await handleCreate(body);
       case "update":
