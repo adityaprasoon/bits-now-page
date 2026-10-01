@@ -1,7 +1,9 @@
 const API_URL = "https://script.google.com/macros/s/AKfycbySvLSySSBP-jLQpAXwzDGgRbW1ySHfKVNbIU63PcJSc1JorxnG0Sb625i4rF1jhBcirw/exec";
 const REFRESH_INTERVAL_MS = 60 * 1000;
+const STALE_AFTER_MS = 30 * 60 * 1000;
 const IST_TIMEZONE = "Asia/Kolkata";
 const CACHE_KEY = "now-page-last-good-payload";
+const CACHE_UPDATED_AT_KEY = "now-page-last-successful-refresh";
 
 const activeEventsEl = document.getElementById("active-events");
 const upcomingEventsEl = document.getElementById("upcoming-events");
@@ -12,6 +14,31 @@ const lastUpdatedEl = document.getElementById("last-updated");
 const sheetLastChangedEl = document.getElementById("sheet-last-changed");
 const errorBoxEl = document.getElementById("error-box");
 const clockTextEl = document.getElementById("clock-text");
+const refreshButtonEl = document.getElementById("refresh-button");
+
+function getCachedRefreshTime() {
+  try {
+    const cachedTime = Number(localStorage.getItem(CACHE_UPDATED_AT_KEY));
+    return Number.isFinite(cachedTime) && cachedTime > 0 ? cachedTime : Date.now();
+  } catch (_err) {
+    return Date.now();
+  }
+}
+
+let lastSuccessfulFetchAt = getCachedRefreshTime();
+let isFetching = false;
+
+function updateRefreshButton() {
+  const isStale = Date.now() - lastSuccessfulFetchAt >= STALE_AFTER_MS;
+  refreshButtonEl.classList.toggle("stale", isStale);
+  refreshButtonEl.setAttribute(
+    "aria-label",
+    isStale ? "Refresh event data. Data may be stale." : "Refresh event data"
+  );
+  refreshButtonEl.innerHTML = isStale
+    ? '<span aria-hidden="true">↻</span> Refresh — data may be stale'
+    : '<span aria-hidden="true">↻</span> Refresh';
+}
 
 clockTextEl.textContent = "All times are shown in IST";
 
@@ -186,10 +213,19 @@ function loadCache() {
 }
 
 async function fetchAndRender() {
+  if (isFetching) {
+    return;
+  }
+
   if (API_URL.includes("PASTE_YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE")) {
     showError("Set your Google Apps Script Web App URL in app.js before publishing.");
     return;
   }
+
+  isFetching = true;
+  refreshButtonEl.disabled = true;
+  refreshButtonEl.classList.add("loading");
+  refreshButtonEl.innerHTML = '<span aria-hidden="true">↻</span> Refreshing…';
 
   try {
     const response = await fetch(API_URL, { cache: "no-store" });
@@ -198,6 +234,12 @@ async function fetchAndRender() {
     }
 
     const payload = await response.json();
+    lastSuccessfulFetchAt = Date.now();
+    try {
+      localStorage.setItem(CACHE_UPDATED_AT_KEY, String(lastSuccessfulFetchAt));
+    } catch (_err) {
+      // Keep the refresh timestamp in memory when storage is unavailable.
+    }
     renderBoard(payload, false);
     saveCache(payload);
     hideError();
@@ -210,8 +252,16 @@ async function fetchAndRender() {
       showError("Unable to load event data right now. Please retry in a minute.");
     }
     console.error("Now Page fetch failed:", err);
+  } finally {
+    isFetching = false;
+    refreshButtonEl.disabled = false;
+    refreshButtonEl.classList.remove("loading");
+    updateRefreshButton();
   }
 }
 
+refreshButtonEl.addEventListener("click", fetchAndRender);
+updateRefreshButton();
+setInterval(updateRefreshButton, 60 * 1000);
 fetchAndRender();
 setInterval(fetchAndRender, REFRESH_INTERVAL_MS);
