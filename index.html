@@ -15,13 +15,24 @@
 
   <main class="container">
     <header class="header">
-      <p class="kicker">Live Academic Notice Board</p>
+      <div class="header-top">
+        <p class="kicker">Live Academic Notice Board</p>
+        <button id="refresh-button" class="refresh-button" type="button" aria-label="Refresh event data">
+          <span aria-hidden="true">↻</span> Refresh
+        </button>
+        <a class="secondary-button admin-link" href="admin.html">Admin sign in</a>
+      </div>
       <h1>Now Page</h1>
       <p class="subtitle">BITS MTech AIML S2-25 Batch</p>
       <div class="meta-row">
         <p id="clock-text">Using IST (Asia/Kolkata) time</p>
         <p id="last-updated">Last refreshed: Loading...</p>
-        <p id="sheet-last-changed">Last updated (sheet): Loading...</p>
+        <p id="data-last-changed">Last updated: Loading...</p>
+      </div>
+      <div class="subject-controls">
+        <label for="subject-filter">Show</label>
+        <select id="subject-filter" aria-label="Filter by subject"></select>
+        <button id="manage-favorites" class="secondary-button" type="button">Choose favourite subjects</button>
       </div>
     </header>
 
@@ -52,6 +63,27 @@
     <section id="error-box" class="error-box hidden" aria-live="polite"></section>
   </main>
 
+  <dialog id="favorites-dialog" class="favorites-dialog" aria-labelledby="favorites-heading">
+    <form method="dialog" class="favorites-form">
+      <div class="dialog-heading">
+        <div>
+          <p class="kicker">Personalize your view</p>
+          <h2 id="favorites-heading">Favourite subjects</h2>
+        </div>
+        <button class="dialog-close" type="submit" aria-label="Close">×</button>
+      </div>
+      <p class="dialog-description">Choose the subjects you want to see by default. Your selection stays in this browser.</p>
+      <fieldset id="favorites-list" class="favorites-list">
+        <legend class="visually-hidden">Available subjects</legend>
+      </fieldset>
+      <div class="dialog-actions">
+        <button id="save-favorites" class="refresh-button" type="button">Save favourites</button>
+        <button id="clear-favorites" class="secondary-button" type="button">Clear selection</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="supabase-config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

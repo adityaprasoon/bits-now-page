@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Admin · Now Page</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="container admin-container">
+    <header class="header admin-header">
+      <div class="header-top">
+        <div>
+          <p class="kicker">BITS Academic Notice Board</p>
+          <h1>Admin</h1>
+          <p class="subtitle">Manage subjects and events</p>
+        </div>
+        <a class="secondary-button back-link" href="index.html">Public board</a>
+      </div>
+    </header>
+
+    <section id="login-panel" class="section">
+      <h2>Admin sign in</h2>
+      <p class="panel-description">Sign in with the email and password created for your admin account.</p>
+      <form id="login-form" class="form-grid narrow-form">
+        <label>Email
+          <input id="login-email" name="email" type="email" autocomplete="username" required>
+        </label>
+        <label>Password
+          <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <button class="refresh-button" type="submit">Sign in</button>
+      </form>
+    </section>
+
+    <div id="admin-panel" class="hidden">
+      <section class="section admin-toolbar">
+        <div>
+          <p class="kicker">Signed in</p>
+          <p id="admin-identity" class="admin-identity"></p>
+        </div>
+        <button id="sign-out" class="secondary-button" type="button">Sign out</button>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <p class="kicker">Event management</p>
+            <h2 id="event-form-heading">Add event</h2>
+          </div>
+        </div>
+        <form id="event-form" class="form-grid">
+          <input id="event-id" type="hidden">
+          <label>Subject
+            <select id="event-subject" required></select>
+          </label>
+          <label>Event title
+            <input id="event-title" maxlength="200" required>
+          </label>
+          <label class="form-span">Description
+            <textarea id="event-description" rows="3"></textarea>
+          </label>
+          <label>Start date and time (IST)
+            <input id="event-start" type="datetime-local" step="60" required>
+          </label>
+          <label>End date and time (IST)
+            <input id="event-end" type="datetime-local" step="60" required>
+          </label>
+          <label class="form-span">Event link (optional)
+            <input id="event-link" type="url" inputmode="url" placeholder="https://">
+          </label>
+          <label class="checkbox-field form-span">
+            <input id="event-hidden" type="checkbox">
+            <span>Hide event from the public board, including while it is in its active time window</span>
+          </label>
+          <div class="form-actions form-span">
+            <button id="save-event" class="refresh-button" type="submit">Save event</button>
+            <button id="cancel-event-edit" class="secondary-button hidden" type="button">Cancel edit</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <p class="kicker">Current records</p>
+            <h2>Events</h2>
+          </div>
+          <button id="reload-admin-data" class="secondary-button" type="button">Reload</button>
+        </div>
+        <div id="admin-events" class="admin-record-list"></div>
+      </section>
+
+      <section id="subject-admin-section" class="section hidden">
+        <div class="section-head">
+          <div>
+            <p class="kicker">Super admin</p>
+            <h2>Subjects</h2>
+          </div>
+        </div>
+        <form id="subject-form" class="form-grid">
+          <input id="subject-id" type="hidden">
+          <label>Subject code
+            <input id="subject-code" maxlength="30" required>
+          </label>
+          <label>Subject name
+            <input id="subject-name" maxlength="160" required>
+          </label>
+          <div class="form-actions form-span">
+            <button class="refresh-button" type="submit">Save subject</button>
+            <button id="cancel-subject-edit" class="secondary-button hidden" type="button">Cancel edit</button>
+          </div>
+        </form>
+        <div id="admin-subjects" class="admin-record-list"></div>
+      </section>
+
+      <section id="admin-users-section" class="section hidden">
+        <div class="section-head">
+          <div>
+            <p class="kicker">Super admin</p>
+            <h2>Admin accounts</h2>
+          </div>
+        </div>
+        <form id="create-admin-form" class="form-grid">
+          <label>Admin email
+            <input id="new-admin-email" type="email" autocomplete="off" required>
+          </label>
+          <label>Display name
+            <input id="new-admin-name" maxlength="120" required>
+          </label>
+          <label>Temporary password
+            <input id="new-admin-password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required>
+          </label>
+          <fieldset id="new-admin-subjects" class="assignment-fieldset">
+            <legend>Assigned subjects</legend>
+          </fieldset>
+          <div class="form-actions form-span">
+            <button class="refresh-button" type="submit">Create admin</button>
+          </div>
+        </form>
+        <div id="admin-users" class="admin-record-list"></div>
+      </section>
+    </div>
+
+    <section id="admin-message" class="error-box hidden" aria-live="polite"></section>
+    <section id="admin-success" class="success-box hidden" aria-live="polite"></section>
+  </main>
+
+  <script src="supabase-config.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>
