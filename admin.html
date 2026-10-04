@@ -92,6 +92,14 @@
           </div>
           <button id="reload-admin-data" class="secondary-button" type="button">Reload</button>
         </div>
+        <fieldset class="record-subject-filter">
+          <legend>Filter by subject</legend>
+          <div class="record-filter-actions">
+            <button id="select-all-record-subjects" class="secondary-button" type="button">Select all</button>
+            <button id="unselect-all-record-subjects" class="secondary-button" type="button">Unselect all</button>
+          </div>
+          <div id="record-subject-options" class="record-subject-options"></div>
+        </fieldset>
         <div id="admin-events" class="admin-record-list"></div>
       </section>
 
@@ -133,7 +141,7 @@
             <input id="new-admin-name" maxlength="120" required>
           </label>
           <label>Temporary password
-            <input id="new-admin-password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required>
+            <input id="new-admin-password" type="password" minlength="7" autocomplete="new-password" required>
           </label>
           <fieldset id="new-admin-subjects" class="assignment-fieldset">
             <legend>Assigned subjects</legend>

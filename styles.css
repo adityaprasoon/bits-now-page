@@ -513,6 +513,56 @@ h1 {
   gap: 8px;
 }
 
+.record-subject-filter {
+  min-width: 0;
+  margin: 16px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.record-subject-filter legend {
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.record-filter-actions,
+.record-subject-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 10px;
+}
+
+.record-filter-actions .secondary-button {
+  min-height: 30px;
+  padding: 5px 10px;
+  font-size: 0.75rem;
+}
+
+.record-subject-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  color: var(--text);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.record-subject-option input {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  margin: 0;
+  accent-color: var(--active);
+}
+
+.record-subject-option span {
+  overflow-wrap: anywhere;
+}
+
 .admin-record-list {
   display: grid;
   gap: 10px;

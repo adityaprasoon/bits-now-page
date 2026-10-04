@@ -78,7 +78,7 @@ supabase functions deploy manage-admin
 
 For local function development, use a private `.env` file with `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and `APP_ALLOWED_ORIGIN`; never commit that file or expose the service-role key in browser code. The function is configured to require a valid JWT at the Supabase gateway as well as checking the super-admin role itself.
 
-Admin creation requires an email, a temporary password (12–128 characters), display name, and an array of assigned subject UUIDs. Deliver initial/reset passwords to the admin privately. Only a super admin can call these operations. Admins can edit events only for their assigned subjects; event changes and subject changes update the public `content_metadata.updated_at` value.
+Admin creation requires an email, a temporary password (at least 7 characters, with no application-imposed maximum), display name, and an array of assigned subject UUIDs. Deliver initial/reset passwords to the admin privately. Only a super admin can call these operations. Admins can edit events only for their assigned subjects; event changes and subject changes update the public `content_metadata.updated_at` value.
 
 The function accepts JSON POST requests with the caller's bearer token:
 

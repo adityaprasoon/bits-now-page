@@ -29,7 +29,7 @@ function isEmail(value: unknown): value is string {
 }
 
 function validPassword(value: unknown): value is string {
-  return typeof value === "string" && value.length >= 12 && value.length <= 128;
+  return typeof value === "string" && value.length > 6;
 }
 
 function isSubjectIdList(value: unknown): value is string[] {
@@ -230,7 +230,7 @@ async function handleUpdate(body: Record<string, unknown>, userId: string) {
 
 async function handleResetPassword(body: Record<string, unknown>, userId: string) {
   if (!validPassword(body.password)) {
-    return jsonResponse(400, { error: "Password must be 12–128 characters." });
+    return jsonResponse(400, { error: "Password must be more than 6 characters." });
   }
   if (!await getAdminProfile(userId)) {
     return jsonResponse(404, { error: "Admin account not found." });

@@ -10,6 +10,7 @@ const messageEl = document.getElementById("admin-message");
 const successEl = document.getElementById("admin-success");
 const eventForm = document.getElementById("event-form");
 const eventList = document.getElementById("admin-events");
+const recordSubjectOptions = document.getElementById("record-subject-options");
 const subjectForm = document.getElementById("subject-form");
 const subjectList = document.getElementById("admin-subjects");
 const createAdminForm = document.getElementById("create-admin-form");
@@ -21,6 +22,7 @@ let subjects = [];
 let assignedSubjectIds = [];
 let eventRecords = [];
 let adminRecords = [];
+const excludedRecordSubjectIds = new Set();
 
 function loadSession() {
   try {
@@ -218,8 +220,7 @@ function makeField(labelText, value, type = "text") {
   input.type = type;
   input.value = value || "";
   if (type === "password") {
-    input.minLength = 12;
-    input.maxLength = 128;
+    input.minLength = 7;
     input.autocomplete = "new-password";
   }
   label.append(input);
@@ -295,6 +296,7 @@ async function loadAdminData() {
     subject: Array.isArray(event.subjects) ? event.subjects[0] : event.subjects
   }));
   renderEventSubjectOptions();
+  renderRecordSubjectFilter();
   renderEvents();
 
   if (profile.role === "super_admin") {
@@ -313,14 +315,53 @@ function renderEventSubjectOptions() {
   select.disabled = !select.options.length;
 }
 
+function renderRecordSubjectFilter() {
+  recordSubjectOptions.replaceChildren();
+  subjects.forEach((subject) => {
+    const label = document.createElement("label");
+    label.className = "record-subject-option";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = subject.id;
+    checkbox.checked = !excludedRecordSubjectIds.has(subject.id);
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) excludedRecordSubjectIds.delete(subject.id);
+      else excludedRecordSubjectIds.add(subject.id);
+      renderEvents();
+    });
+    const text = document.createElement("span");
+    text.textContent = subject.code;
+    label.append(checkbox, text);
+    recordSubjectOptions.append(label);
+  });
+  if (!subjects.length) addText(recordSubjectOptions, "p", "empty", "No subjects available.");
+}
+
+document.getElementById("select-all-record-subjects").addEventListener("click", () => {
+  excludedRecordSubjectIds.clear();
+  renderRecordSubjectFilter();
+  renderEvents();
+});
+
+document.getElementById("unselect-all-record-subjects").addEventListener("click", () => {
+  subjects.forEach((subject) => excludedRecordSubjectIds.add(subject.id));
+  renderRecordSubjectFilter();
+  renderEvents();
+});
+
 function renderEvents() {
   eventList.replaceChildren();
   if (!eventRecords.length) {
     addText(eventList, "p", "empty", "No events are available for your account.");
     return;
   }
+  const visibleRecords = eventRecords.filter((event) => !excludedRecordSubjectIds.has(event.subject_id));
+  if (!visibleRecords.length) {
+    addText(eventList, "p", "empty", "No events match the selected subjects.");
+    return;
+  }
   const subjectById = new Map(subjects.map((subject) => [subject.id, subject]));
-  eventRecords.forEach((event) => {
+  visibleRecords.forEach((event) => {
     const row = document.createElement("article");
     row.className = "admin-record";
     const heading = document.createElement("div");
