@@ -19,6 +19,7 @@ const errorBoxEl = document.getElementById("error-box");
 const clockTextEl = document.getElementById("clock-text");
 const refreshButtonEl = document.getElementById("refresh-button");
 const subjectFilterEl = document.getElementById("subject-filter");
+const subjectFilterStatusEl = document.getElementById("subject-filter-status");
 const favoritesDialogEl = document.getElementById("favorites-dialog");
 const favoritesListEl = document.getElementById("favorites-list");
 const saveFavoritesButtonEl = document.getElementById("save-favorites");
@@ -83,7 +84,7 @@ function formatIst(isoDateTime) {
     hour: "2-digit",
     minute: "2-digit",
     hour12: true
-  }).format(date) + " IST";
+  }).format(date);
 }
 
 const URGENCY_THRESHOLDS = {
@@ -144,17 +145,15 @@ function eventCard(event, styleClass, serverNow, labels) {
       <div class="subject-identity">
         <span class="subject-code">${escapeHtml(subject.code || "Subject")}</span>
         <span class="subject-name">${escapeHtml(subject.name || "")}</span>
+        <span class="duration-total"><span aria-hidden="true">◷</span> ${duration}<span class="visually-hidden"> duration</span></span>
       </div>
       <h3>${escapeHtml(event.title)}</h3>
       ${event.description ? `<p>${escapeHtml(event.description)}</p>` : ""}
       <div class="time-row">
-        <span>${labels.start}: ${formatIst(event.start_at)}</span>
-        <span>${labels.end}: ${formatIst(event.end_at)}</span>
+        <span class="time-pill"><span class="time-label">${labels.start}</span><time>${formatIst(event.start_at)} IST</time></span>
+        <span class="time-pill"><span class="time-label">${labels.end}</span><time>${formatIst(event.end_at)} IST</time></span>
       </div>
-      <div class="duration-row">
-        <span class="duration-total">Duration: ${duration}</span>
-        ${styleClass === "active" ? `<span class="time-left ${urgent ? "time-left-urgent" : ""}">⏳ ${formatDuration(msLeft)} left</span>` : ""}
-      </div>
+      ${styleClass === "active" ? `<div class="duration-row"><span class="time-left ${urgent ? "time-left-urgent" : ""}"><span aria-hidden="true">⌛</span> ${formatDuration(msLeft)} left</span></div>` : ""}
       ${safeLink(event.link)}
     </article>
   `;
@@ -171,7 +170,22 @@ function getVisibleEvents() {
   return allEvents.filter((event) => favorites.has(event.subject_id));
 }
 
+function renderSubjectFilterStatus() {
+  if (currentSubjectFilter() === "all") {
+    subjectFilterStatusEl.textContent = "Showing all subjects";
+    return;
+  }
+
+  const favoriteCodes = subjects
+    .filter((subject) => favoriteSubjectIds.includes(subject.id))
+    .map((subject) => subject.code);
+  subjectFilterStatusEl.textContent = favoriteCodes.length
+    ? `Showing favourite subjects: ${favoriteCodes.join(", ")}`
+    : "Showing favourite subjects: none selected";
+}
+
 function renderBoard() {
+  renderSubjectFilterStatus();
   const now = new Date();
   const events = getVisibleEvents().filter((event) => !event.is_hidden);
   const active = [];
@@ -196,18 +210,18 @@ function renderBoard() {
   active.sort((a, b) => new Date(a.end_at) - new Date(b.end_at));
 
   activeEventsEl.innerHTML = active.length
-    ? active.map((event) => eventCard(event, "active", now, { start: "Start (IST)", end: "End (IST)" })).join("")
+    ? active.map((event) => eventCard(event, "active", now, { start: "Starts at", end: "Ends at" })).join("")
     : '<p class="empty">No active events right now.</p>';
 
   const upcomingTop = upcoming.slice(0, 2);
   upcomingEventsEl.innerHTML = upcomingTop
-    .map((event) => eventCard(event, "", now, { start: "Expected start (IST)", end: "Expected end (IST)" }))
+    .map((event) => eventCard(event, "", now, { start: "Starts at", end: "Ends at" }))
     .join("");
   upcomingSectionEl.classList.toggle("hidden", !upcomingTop.length);
 
   const passedTop = passed.slice(0, 2);
   passedEventsEl.innerHTML = passedTop
-    .map((event) => eventCard(event, "past", now, { start: "Start (IST)", end: "End (IST)" }))
+    .map((event) => eventCard(event, "past", now, { start: "Starts at", end: "Ends at" }))
     .join("");
   passedSectionEl.classList.toggle("hidden", !passedTop.length);
 }
@@ -216,7 +230,6 @@ function renderSubjectFilter() {
   const previouslySelected = subjectFilterEl.value;
   subjectFilterEl.replaceChildren();
   const favoritesOption = new Option("Favourite subjects", "favorites");
-  favoritesOption.disabled = favoriteSubjectIds.length === 0;
   subjectFilterEl.add(favoritesOption);
   subjectFilterEl.add(new Option("All subjects", "all"));
 
@@ -278,9 +291,7 @@ function updateRefreshButton() {
     "aria-label",
     isStale ? "Refresh event data. Data may be stale." : "Refresh event data"
   );
-  refreshButtonEl.innerHTML = isStale
-    ? '<span aria-hidden="true">↻</span> Refresh — data may be stale'
-    : '<span aria-hidden="true">↻</span> Refresh';
+  refreshButtonEl.innerHTML = '<span aria-hidden="true">↻</span>';
 }
 
 function applyPayload(payload) {
@@ -291,10 +302,10 @@ function applyPayload(payload) {
   writeStorage(FAVORITES_KEY, JSON.stringify(favoriteSubjectIds));
   renderSubjectFilter();
 
-  lastUpdatedEl.textContent = `Last refreshed: ${formatIst(payload.serverNowUtc)}`;
+  lastUpdatedEl.textContent = `Page refreshed at: ${formatIst(payload.serverNowUtc)} IST`;
   dataLastChangedEl.textContent = payload.lastChangedUtc
-    ? `Last updated: ${formatIst(payload.lastChangedUtc)}`
-    : "Last updated: Not available yet";
+    ? `Data updated at: ${formatIst(payload.lastChangedUtc)} IST`
+    : "Data updated at: Not available yet";
 }
 
 async function fetchSupabaseTable(table, query) {
@@ -346,7 +357,7 @@ async function fetchAndRender() {
   isFetching = true;
   refreshButtonEl.disabled = true;
   refreshButtonEl.classList.add("loading");
-  refreshButtonEl.innerHTML = '<span aria-hidden="true">↻</span> Refreshing…';
+  refreshButtonEl.innerHTML = '<span aria-hidden="true">↻</span>';
 
   try {
     const payload = await fetchBoardData();

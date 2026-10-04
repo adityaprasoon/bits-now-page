@@ -6,10 +6,10 @@
   <title>Now Page</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="now-page">
   <div class="bg-orb bg-orb-1" aria-hidden="true"></div>
   <div class="bg-orb bg-orb-2" aria-hidden="true"></div>
 
@@ -17,23 +17,18 @@
     <header class="header">
       <div class="header-top">
         <p class="kicker">Live Academic Notice Board</p>
-        <button id="refresh-button" class="refresh-button" type="button" aria-label="Refresh event data">
-          <span aria-hidden="true">↻</span> Refresh
+        <button id="refresh-button" class="refresh-button icon-button" type="button" aria-label="Refresh event data" title="Refresh event data">
+          <span aria-hidden="true">↻</span>
         </button>
-        <a class="secondary-button admin-link" href="admin.html">Admin sign in</a>
       </div>
       <h1>Now Page</h1>
       <p class="subtitle">BITS MTech AIML S2-25 Batch</p>
-      <div class="meta-row">
-        <p id="clock-text">Using IST (Asia/Kolkata) time</p>
-        <p id="last-updated">Last refreshed: Loading...</p>
-        <p id="data-last-changed">Last updated: Loading...</p>
-      </div>
       <div class="subject-controls">
         <label for="subject-filter">Show</label>
         <select id="subject-filter" aria-label="Filter by subject"></select>
         <button id="manage-favorites" class="secondary-button" type="button">Choose favourite subjects</button>
       </div>
+      <p id="subject-filter-status" class="subject-filter-status" aria-live="polite"></p>
     </header>
 
     <section aria-labelledby="active-heading" class="section active-section">
@@ -62,6 +57,14 @@
 
     <section id="error-box" class="error-box hidden" aria-live="polite"></section>
   </main>
+
+  <footer class="page-footer">
+    <div class="page-footer-content">
+      <p id="clock-text">All times are shown in IST</p>
+      <p id="last-updated">Page refreshed at: Loading...</p>
+      <p id="data-last-changed">Data updated at: Loading...</p>
+    </div>
+  </footer>
 
   <dialog id="favorites-dialog" class="favorites-dialog" aria-labelledby="favorites-heading">
     <form method="dialog" class="favorites-form">
