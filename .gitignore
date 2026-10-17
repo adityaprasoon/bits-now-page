@@ -3,3 +3,4 @@
 !.env.example
 supabase/.env
 supabase/.env.*
+dist/
