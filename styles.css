@@ -270,6 +270,7 @@ h1 {
 .favorites-dialog {
   width: min(480px, calc(100% - 28px));
   max-height: min(680px, calc(100vh - 32px));
+  overflow: hidden;
   padding: 0;
   color: var(--text);
   background: var(--surface);
@@ -278,12 +279,20 @@ h1 {
   box-shadow: 0 24px 80px rgba(16, 35, 33, 0.22);
 }
 
+.favorites-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
 .favorites-dialog::backdrop {
   background: rgba(18, 36, 34, 0.46);
   backdrop-filter: blur(3px);
 }
 
 .favorites-form {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  min-height: 0;
   padding: clamp(20px, 5vw, 28px);
 }
 
@@ -324,6 +333,7 @@ h1 {
 
 .favorites-list {
   display: grid;
+  min-height: 0;
   max-height: 44vh;
   gap: 8px;
   overflow-y: auto;
