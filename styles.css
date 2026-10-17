@@ -192,7 +192,8 @@ h1 {
   font-weight: 600;
 }
 
-.subject-controls select {
+.subject-controls select,
+.event-limit {
   min-height: 40px;
   min-width: 180px;
   padding: 8px 16px;
@@ -217,6 +218,7 @@ h1 {
 }
 
 .subject-controls select:focus-visible,
+.event-limit:focus-visible,
 .secondary-button:focus-visible,
 .favorite-option input:focus-visible,
 .dialog-close:focus-visible {
@@ -746,6 +748,18 @@ h1 {
   font-size: 1.12rem;
   font-weight: 700;
   letter-spacing: 0;
+}
+
+.event-section-head {
+  flex-wrap: wrap;
+}
+
+.event-limit {
+  max-width: 100%;
+  min-width: 0;
+  margin-left: auto;
+  padding-right: 36px;
+  font-size: 0.78rem;
 }
 
 .section-note {

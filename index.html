@@ -41,17 +41,25 @@
     </section>
 
     <section id="upcoming-section" aria-labelledby="upcoming-heading" class="section">
-      <div class="section-head">
+      <div class="section-head event-section-head">
         <h2 id="upcoming-heading">Upcoming</h2>
-        <p class="section-note">Up to 2 events</p>
+        <select id="upcoming-limit" class="event-limit" aria-label="Upcoming events per subject">
+          <option value="1">Up to 1 event per subject</option>
+          <option value="2">Up to 2 events per subject</option>
+          <option value="all">All</option>
+        </select>
       </div>
       <div id="upcoming-events" class="cards compact"></div>
     </section>
 
     <section id="passed-section" aria-labelledby="passed-heading" class="section">
-      <div class="section-head">
+      <div class="section-head event-section-head">
         <h2 id="passed-heading">Recently Passed</h2>
-        <p class="section-note">Up to 2 events</p>
+        <select id="passed-limit" class="event-limit" aria-label="Recently passed events per subject">
+          <option value="1">Up to 1 event per subject</option>
+          <option value="2">Up to 2 events per subject</option>
+          <option value="all">All</option>
+        </select>
       </div>
       <div id="passed-events" class="cards compact"></div>
     </section>

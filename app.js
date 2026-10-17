@@ -4,6 +4,8 @@ const IST_TIMEZONE = "Asia/Kolkata";
 const CACHE_KEY = "now-page-supabase-last-good-payload";
 const CACHE_UPDATED_AT_KEY = "now-page-last-successful-refresh";
 const FAVORITES_KEY = "now-page-favorite-subjects";
+const UPCOMING_LIMIT_KEY = "now-page-upcoming-limit";
+const PASSED_LIMIT_KEY = "now-page-passed-limit";
 const SUPABASE_CONFIG = window.SUPABASE_CONFIG || {};
 const SUPABASE_URL = (SUPABASE_CONFIG.url || "").replace(/\/+$/, "");
 const SUPABASE_ANON_KEY = SUPABASE_CONFIG.anonKey || "";
@@ -13,6 +15,8 @@ const upcomingEventsEl = document.getElementById("upcoming-events");
 const passedEventsEl = document.getElementById("passed-events");
 const upcomingSectionEl = document.getElementById("upcoming-section");
 const passedSectionEl = document.getElementById("passed-section");
+const upcomingLimitEl = document.getElementById("upcoming-limit");
+const passedLimitEl = document.getElementById("passed-limit");
 const lastUpdatedEl = document.getElementById("last-updated");
 const dataLastChangedEl = document.getElementById("data-last-changed");
 const errorBoxEl = document.getElementById("error-box");
@@ -48,7 +52,7 @@ function writeStorage(key, value) {
   try {
     localStorage.setItem(key, value);
   } catch (_err) {
-    showError("Browser storage is unavailable. Favourite subjects may not be saved.");
+    showError("Browser storage is unavailable. Your preferences may not be saved.");
   }
 }
 
@@ -184,6 +188,17 @@ function renderSubjectFilterStatus() {
     : "Showing favourite subjects: none selected";
 }
 
+function limitEventsPerSubject(events, limit) {
+  if (limit === "all") return events;
+  const counts = new Map();
+  return events.filter((event) => {
+    const count = counts.get(event.subject_id) || 0;
+    if (count >= Number(limit)) return false;
+    counts.set(event.subject_id, count + 1);
+    return true;
+  });
+}
+
 function renderBoard() {
   renderSubjectFilterStatus();
   const now = new Date();
@@ -213,13 +228,13 @@ function renderBoard() {
     ? active.map((event) => eventCard(event, "active", now, { start: "Starts at", end: "Ends at" })).join("")
     : '<p class="empty">No active events right now.</p>';
 
-  const upcomingTop = upcoming.slice(0, 2);
+  const upcomingTop = limitEventsPerSubject(upcoming, upcomingLimitEl.value);
   upcomingEventsEl.innerHTML = upcomingTop
     .map((event) => eventCard(event, "", now, { start: "Starts at", end: "Ends at" }))
     .join("");
   upcomingSectionEl.classList.toggle("hidden", !upcomingTop.length);
 
-  const passedTop = passed.slice(0, 2);
+  const passedTop = limitEventsPerSubject(passed, passedLimitEl.value);
   passedEventsEl.innerHTML = passedTop
     .map((event) => eventCard(event, "past", now, { start: "Starts at", end: "Ends at" }))
     .join("");
@@ -402,6 +417,18 @@ saveFavoritesButtonEl.addEventListener("click", () => {
 clearFavoritesButtonEl.addEventListener("click", () => {
   favoritesListEl.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
     checkbox.checked = false;
+  });
+});
+
+[
+  [upcomingLimitEl, UPCOMING_LIMIT_KEY],
+  [passedLimitEl, PASSED_LIMIT_KEY]
+].forEach(([select, key]) => {
+  const savedLimit = readStorage(key, "1");
+  select.value = ["1", "2", "all"].includes(savedLimit) ? savedLimit : "1";
+  select.addEventListener("change", () => {
+    writeStorage(key, select.value);
+    renderBoard();
   });
 });
 
